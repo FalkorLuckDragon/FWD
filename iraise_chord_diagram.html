@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>I'RAISE Program Ecosystem — Chord Diagram</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0d1520;
+    color: #e8e0d0;
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    text-align: center;
+    padding: 36px 20px 16px;
+    max-width: 900px;
+  }
+
+  .org-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #C8952A;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(22px, 4vw, 40px);
+    font-weight: 900;
+    color: #ffffff;
+    line-height: 1.1;
+    margin-bottom: 10px;
+  }
+
+  h1 span { color: #C8952A; }
+
+  .subtitle {
+    font-size: 13px;
+    color: #8a9ab5;
+    font-weight: 300;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  #chart-container {
+    position: relative;
+    width: 100%;
+    max-width: 820px;
+    display: flex;
+    justify-content: center;
+    padding: 0 10px;
+  }
+
+  svg { overflow: visible; }
+
+  .chord path {
+    cursor: pointer;
+    transition: opacity 0.25s;
+  }
+
+  .chord path:hover { opacity: 1 !important; }
+
+  .arc path { cursor: pointer; }
+
+  .tooltip {
+    position: fixed;
+    background: rgba(13, 21, 32, 0.97);
+    border: 1px solid #C8952A;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    max-width: 260px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    line-height: 1.5;
+  }
+
+  .tooltip.visible { opacity: 1; }
+
+  .tooltip-title {
+    font-weight: 600;
+    color: #C8952A;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .tooltip-body { color: #ccd6e8; font-size: 12px; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 24px;
+    padding: 16px 20px 8px;
+    max-width: 820px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #9aabb8;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .legend-item:hover { color: #fff; }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .instructions {
+    font-size: 11px;
+    color: #4a5c72;
+    text-align: center;
+    padding: 8px 20px 28px;
+    letter-spacing: 0.5px;
+  }
+
+  .program-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin: 0 4px;
+  }
+
+  .badge-genz { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+  .badge-fr { background: rgba(200,149,42,0.15); color: #C8952A; border: 1px solid rgba(200,149,42,0.3); }
+  .badge-shared { background: rgba(134,239,172,0.12); color: #86efac; border: 1px solid rgba(134,239,172,0.25); }
+
+  .badges-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 0 4px;
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="org-label">I'RAISE Girls &amp; Boys Leadership Institute</div>
+  <h1>Program Ecosystem <span>Chord Diagram</span></h1>
+  <p class="subtitle">Visualizing the shared relationships, skills, and outcomes across the Gen Z College &amp; Career Pathways Program and FutureRise Fellowship</p>
+</header>
+
+<div class="badges-row">
+  <span class="program-badge badge-genz">● Gen Z Program</span>
+  <span class="program-badge badge-fr">● FutureRise Fellowship</span>
+  <span class="program-badge badge-shared">● Shared Elements</span>
+</div>
+
+<div id="chart-container">
+  <svg id="chord-svg"></svg>
+</div>
+
+<div class="legend" id="legend"></div>
+
+<p class="instructions">Hover over arcs and ribbons to explore connections · Arc size reflects number of shared relationships</p>
+
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-title" id="tt-title"></div>
+  <div class="tooltip-body" id="tt-body"></div>
+</div>
+
+<script>
+// ─── DATA MODEL ────────────────────────────────────────────────────────────────
+// Nodes: program elements. Colors mark which program they belong to.
+// program: 0=Gen Z, 1=FutureRise, 2=Shared
+
+const nodes = [
+  // SHARED OUTCOMES & MISSION (center of gravity)
+  { id: 0,  label: "College Prep",            program: 2, desc: "Personal statements, applications, financial aid workshops, FAFSA support, college visits, and application fee waivers." },
+  { id: 1,  label: "Career Exploration",      program: 2, desc: "6 career tracks: Healthcare, Business/Finance, STEM, Arts/Media, Social Impact, and Tech & Innovation — connecting students to real professional pathways." },
+  { id: 2,  label: "Social Capital",          program: 2, desc: "Building intentional networks, mentorship relationships, professional connections, alumni ties, and the skills to leverage them." },
+  { id: 3,  label: "SEL & Soft Skills",       program: 2, desc: "Self-advocacy, storytelling, professional communication, resilience, leadership, and navigating social pressure." },
+  { id: 4,  label: "SAT / Academic Prep",     program: 2, desc: "PSAT and SAT preparation, study skills, note-taking, test strategies, and GPA growth tracking across both programs." },
+
+  // GEN Z SPECIFIC
+  { id: 5,  label: "Gen Z: School-Embedded",  program: 0, desc: "Non-selective, in-school after-school program. Students don't apply — it integrates directly into the school environment. NYC & Memphis." },
+  { id: 6,  label: "Gen Z: Outreach",         program: 0, desc: "Targeted sales and outreach to principals, city council members, curriculum directors, and parent advocates. Grounded in ESSA, CCCR, and absenteeism data." },
+  { id: 7,  label: "Gen Z: Onboarding",       program: 0, desc: "One-week onboarding process followed by 2–3 months of programming, with mid-program evaluation (not mid-year)." },
+  { id: 8,  label: "Gen Z: Policy Alignment", program: 0, desc: "Aligned to ESSA 'Reimagine Phase', CCCR indicator (2025-26), NY FAFSA mandate, and chronic absenteeism reduction goals (43% NYC high schools)." },
+
+  // FUTURERISE SPECIFIC
+  { id: 9,  label: "FR: Selective Fellowship",program: 1, desc: "Application-based program outside of school. Two-tier structure: Explorers (9th grade) and Fellows (10th–12th grade). NYC & Memphis." },
+  { id: 10, label: "FR: Explorers (9th)",     program: 1, desc: "Open-access, lighter-touch track. 100 hrs/year. Monthly Saturdays + weeknight sessions. Focus: career exposure, high school success, Fellowship prep." },
+  { id: 11, label: "FR: Fellows (10-12th)",   program: 1, desc: "Intensive tier. 230 hrs/year. Weekly touchpoints, 1-on-1 mentorship, in-person convenings, internship placements, 100% college application target." },
+  { id: 12, label: "FR: Career Clubs",        program: 1, desc: "6 Fellow-led clubs: Healthcare, Business & Finance, STEM & Engineering, Arts/Media/Comms, Social Impact & Policy, Tech & Innovation." },
+  { id: 13, label: "FR: Summer Institute",    program: 1, desc: "On-campus, week-long full-time summer program. Internship placements for all 9th graders. Potential Spring Break college immersion camp at City College." },
+  { id: 14, label: "FR: Measurement",         program: 1, desc: "5-domain framework: Academic Progress, Career Readiness, SEL, Social Capital/Network, Program Engagement. Tools: CoVitality Screener, Mosaic by ACT." },
+  { id: 15, label: "FR: National Convenings", program: 1, desc: "Quarterly in-person convenings across NYC and Memphis. Features on-campus lectures, cultural activities, club events, and student council sessions." },
+  { id: 16, label: "FR: Funder Strategy",     program: 1, desc: "3-year enrollment pipeline story, per-student cost efficiency, scalable outcomes data. Targets: Gund Foundation, corporate partners, merit scholarship pipelines." },
+];
+
+// Connection matrix: value = strength of shared relationship (1–5)
+// Rows & cols follow node order above
+const n = nodes.length;
+const matrix = Array.from({length: n}, () => Array(n).fill(0));
+
+function connect(a, b, v) { matrix[a][b] += v; matrix[b][a] += v; }
+
+// SHARED nodes connect strongly to each other
+connect(0, 1, 4); // College Prep ↔ Career Exploration
+connect(0, 2, 3); // College Prep ↔ Social Capital
+connect(0, 3, 3); // College Prep ↔ SEL
+connect(0, 4, 4); // College Prep ↔ SAT Prep
+connect(1, 2, 4); // Career Exploration ↔ Social Capital
+connect(1, 3, 3); // Career Exploration ↔ SEL
+connect(2, 3, 4); // Social Capital ↔ SEL
+connect(3, 4, 2); // SEL ↔ SAT Prep
+connect(1, 4, 2); // Career Exploration ↔ SAT Prep
+
+// GEN Z internal
+connect(5, 6, 4); // School-Embedded ↔ Outreach
+connect(5, 7, 5); // School-Embedded ↔ Onboarding
+connect(5, 8, 4); // School-Embedded ↔ Policy Alignment
+connect(6, 8, 4); // Outreach ↔ Policy Alignment
+connect(7, 8, 3); // Onboarding ↔ Policy Alignment
+
+// GEN Z ↔ SHARED
+connect(5, 0, 4); // School-Embedded ↔ College Prep
+connect(5, 1, 4); // School-Embedded ↔ Career Exploration
+connect(5, 3, 3); // School-Embedded ↔ SEL
+connect(5, 4, 3); // School-Embedded ↔ SAT Prep
+connect(6, 1, 3); // Outreach ↔ Career Exploration
+connect(7, 0, 3); // Onboarding ↔ College Prep
+connect(7, 3, 3); // Onboarding ↔ SEL
+connect(8, 0, 2); // Policy ↔ College Prep
+
+// FUTURERISE internal
+connect(9, 10, 5);  // Fellowship ↔ Explorers
+connect(9, 11, 5);  // Fellowship ↔ Fellows
+connect(9, 14, 4);  // Fellowship ↔ Measurement
+connect(9, 16, 4);  // Fellowship ↔ Funder Strategy
+connect(10, 11, 4); // Explorers ↔ Fellows (pipeline)
+connect(10, 13, 4); // Explorers ↔ Summer Institute
+connect(11, 12, 5); // Fellows ↔ Career Clubs
+connect(11, 13, 4); // Fellows ↔ Summer Institute
+connect(11, 14, 5); // Fellows ↔ Measurement
+connect(11, 15, 4); // Fellows ↔ Convenings
+connect(12, 15, 4); // Career Clubs ↔ Convenings
+connect(13, 15, 3); // Summer Institute ↔ Convenings
+connect(14, 16, 4); // Measurement ↔ Funder Strategy
+connect(15, 16, 3); // Convenings ↔ Funder Strategy
+
+// FUTURERISE ↔ SHARED
+connect(9,  0, 4);  // Fellowship ↔ College Prep
+connect(9,  1, 5);  // Fellowship ↔ Career Exploration
+connect(9,  2, 5);  // Fellowship ↔ Social Capital
+connect(9,  3, 4);  // Fellowship ↔ SEL
+connect(10, 1, 3);  // Explorers ↔ Career Exploration
+connect(10, 3, 3);  // Explorers ↔ SEL
+connect(10, 4, 3);  // Explorers ↔ SAT Prep
+connect(11, 0, 5);  // Fellows ↔ College Prep
+connect(11, 1, 5);  // Fellows ↔ Career Exploration
+connect(11, 2, 5);  // Fellows ↔ Social Capital
+connect(11, 3, 4);  // Fellows ↔ SEL
+connect(11, 4, 4);  // Fellows ↔ SAT Prep
+connect(12, 1, 5);  // Career Clubs ↔ Career Exploration
+connect(12, 2, 4);  // Career Clubs ↔ Social Capital
+connect(12, 3, 3);  // Career Clubs ↔ SEL
+connect(13, 0, 3);  // Summer Institute ↔ College Prep
+connect(13, 2, 3);  // Summer Institute ↔ Social Capital
+connect(14, 2, 3);  // Measurement ↔ Social Capital
+connect(14, 4, 3);  // Measurement ↔ SAT Prep
+connect(16, 0, 2);  // Funder Strategy ↔ College Prep
+
+// ─── COLORS ────────────────────────────────────────────────────────────────────
+const PROGRAM_COLORS = {
+  0: "#3b82f6",  // Gen Z — blue
+  1: "#C8952A",  // FutureRise — gold
+  2: "#86efac",  // Shared — green
+};
+
+const nodeColors = nodes.map(d => PROGRAM_COLORS[d.program]);
+
+// ─── RENDER ────────────────────────────────────────────────────────────────────
+const W = Math.min(window.innerWidth - 40, 800);
+const H = W;
+const outerRadius = W * 0.42;
+const innerRadius = outerRadius - 22;
+
+const svg = d3.select("#chord-svg")
+  .attr("width", W)
+  .attr("height", H)
+  .append("g")
+  .attr("transform", `translate(${W/2},${H/2})`);
+
+// Defs: gradient fills for arcs
+const defs = svg.append("defs");
+
+nodes.forEach((node, i) => {
+  const grad = defs.append("radialGradient")
+    .attr("id", `arcgrad-${i}`)
+    .attr("cx", "50%").attr("cy", "50%").attr("r", "50%");
+  grad.append("stop").attr("offset", "0%").attr("stop-color", nodeColors[i]).attr("stop-opacity", 1);
+  grad.append("stop").attr("offset", "100%").attr("stop-color", nodeColors[i]).attr("stop-opacity", 0.7);
+});
+
+const chord = d3.chord()
+  .padAngle(0.03)
+  .sortSubgroups(d3.descending)
+  (matrix);
+
+const arc = d3.arc().innerRadius(innerRadius).outerRadius(outerRadius);
+const ribbon = d3.ribbon().radius(innerRadius - 2);
+
+const tooltip = document.getElementById("tooltip");
+const ttTitle = document.getElementById("tt-title");
+const ttBody  = document.getElementById("tt-body");
+
+function showTooltip(event, title, body) {
+  ttTitle.textContent = title;
+  ttBody.textContent  = body;
+  tooltip.classList.add("visible");
+  moveTooltip(event);
+}
+
+function moveTooltip(event) {
+  const x = event.clientX + 16;
+  const y = event.clientY - 40;
+  tooltip.style.left = Math.min(x, window.innerWidth - 280) + "px";
+  tooltip.style.top  = Math.max(y, 10) + "px";
+}
+
+function hideTooltip() { tooltip.classList.remove("visible"); }
+
+// ── Arcs ──
+const group = svg.append("g")
+  .selectAll("g")
+  .data(chord.groups)
+  .join("g")
+  .attr("class", "arc");
+
+group.append("path")
+  .style("fill", d => `url(#arcgrad-${d.index})`)
+  .style("stroke", d => d3.color(nodeColors[d.index]).darker(0.5))
+  .style("stroke-width", 0.5)
+  .attr("d", arc)
+  .on("mousemove", (event, d) => {
+    const node = nodes[d.index];
+    showTooltip(event, node.label, node.desc);
+    // dim other ribbons
+    svg.selectAll(".chord path")
+      .style("opacity", ch => (ch.source.index === d.index || ch.target.index === d.index) ? 0.85 : 0.08);
+  })
+  .on("mouseleave", () => {
+    hideTooltip();
+    svg.selectAll(".chord path").style("opacity", 0.55);
+  });
+
+// Arc labels
+group.append("text")
+  .each(d => { d.angle = (d.startAngle + d.endAngle) / 2; })
+  .attr("dy", "0.35em")
+  .attr("transform", d => `
+    rotate(${(d.angle * 180 / Math.PI - 90)})
+    translate(${outerRadius + 10})
+    ${d.angle > Math.PI ? "rotate(180)" : ""}
+  `)
+  .attr("text-anchor", d => d.angle > Math.PI ? "end" : "start")
+  .style("fill", d => nodeColors[d.index])
+  .style("font-size", d => {
+    const span = d.endAngle - d.startAngle;
+    return span > 0.18 ? "11px" : span > 0.1 ? "9.5px" : "8px";
+  })
+  .style("font-family", "'DM Sans', sans-serif")
+  .style("font-weight", "500")
+  .text(d => {
+    const node = nodes[d.index];
+    const span = d.endAngle - d.startAngle;
+    if (span < 0.06) return "";
+    // Shorten label for small arcs
+    const lbl = node.label.replace("Gen Z: ", "").replace("FR: ", "");
+    return span < 0.1 ? lbl.split(" ")[0] : lbl;
+  });
+
+// ── Ribbons ──
+svg.append("g")
+  .attr("class", "chord")
+  .attr("fill-opacity", 0.55)
+  .selectAll("path")
+  .data(chord)
+  .join("path")
+  .attr("d", ribbon)
+  .style("fill", d => {
+    // Color by source node's program color, blended
+    const sc = nodeColors[d.source.index];
+    const tc = nodeColors[d.target.index];
+    // Use source color; if same program use that color
+    return nodes[d.source.index].program === nodes[d.target.index].program ? sc : sc;
+  })
+  .style("stroke", d => d3.color(nodeColors[d.source.index]).darker(1))
+  .style("stroke-width", 0.3)
+  .style("opacity", 0.55)
+  .on("mousemove", (event, d) => {
+    const src = nodes[d.source.index];
+    const tgt = nodes[d.target.index];
+    const strength = matrix[d.source.index][d.target.index];
+    const bars = "█".repeat(strength) + "░".repeat(5 - strength);
+    showTooltip(event,
+      `${src.label.replace("Gen Z: ","").replace("FR:","").trim()} ↔ ${tgt.label.replace("Gen Z: ","").replace("FR:","").trim()}`,
+      `Connection strength: ${bars} (${strength}/5)\n\nBoth elements are interconnected within I'RAISE's dual-program ecosystem.`
+    );
+    svg.selectAll(".chord path").style("opacity", ch =>
+      (ch === d) ? 0.9 : 0.06
+    );
+  })
+  .on("mouseleave", () => {
+    hideTooltip();
+    svg.selectAll(".chord path").style("opacity", 0.55);
+  });
+
+// ── Legend ──
+const legendEl = document.getElementById("legend");
+const legendData = [
+  { label: "Gen Z: School-Embedded Program", color: PROGRAM_COLORS[0] },
+  { label: "FutureRise: Selective Fellowship", color: PROGRAM_COLORS[1] },
+  { label: "Shared Outcomes & Skills", color: PROGRAM_COLORS[2] },
+];
+legendData.forEach(item => {
+  const div = document.createElement("div");
+  div.className = "legend-item";
+  div.innerHTML = `<div class="legend-dot" style="background:${item.color}"></div><span>${item.label}</span>`;
+  legendEl.appendChild(div);
+});
+
+// ── Follow mouse on tooltip ──
+document.addEventListener("mousemove", e => {
+  if (tooltip.classList.contains("visible")) moveTooltip(e);
+});
+</script>
+</body>
+</html>
